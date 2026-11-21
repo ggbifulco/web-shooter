@@ -120,6 +120,9 @@ def _clean_schema(schema: Any) -> dict[str, Any]:
             out[k] = [_clean_schema(s) for s in v]
         else:
             out[k] = v
+    if out.get("type") == "file":  # Swagger 2.0 only; not a JSON Schema type
+        out["type"] = "string"
+        out["format"] = "binary"
     if schema.get("nullable") is True and isinstance(out.get("type"), str):
         out["type"] = [out["type"], "null"]
     return out

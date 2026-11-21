@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import json
 import os
-import random
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urlparse
@@ -31,71 +30,153 @@ RETRY_STATUSES = {429, 502, 503, 504}
 LIST_KEYS = ("data", "items", "results", "records", "entries", "values")
 
 
+MAX_SAMPLE_DEPTH = 8
+# Keywords that actually constrain a value; an allOf part without any of them is ignored.
+CONSTRAINING = {
+    "type",
+    "properties",
+    "enum",
+    "const",
+    "items",
+    "allOf",
+    "oneOf",
+    "anyOf",
+    "required",
+}
+STRING_SAMPLES = {
+    "date-time": "2024-01-01T00:00:00Z",
+    "date": "2024-01-01",
+    "email": "user@example.com",
+    "uri": "https://example.com",
+    "url": "https://example.com",
+    "uuid": "00000000-0000-4000-8000-000000000000",
+}
+
+
+def _validates(value: Any, schema: dict[str, Any]) -> bool:
+    try:
+        jsonschema.validate(value, schema)
+    except (jsonschema.ValidationError, jsonschema.SchemaError):
+        return False
+    return True
+
+
+def _object_like(schema: dict[str, Any]) -> bool:
+    if schema.keys() & {"enum", "const", "oneOf", "anyOf", "allOf", "items"}:
+        return False
+    t = schema.get("type")
+    return t in (None, "object") and bool(schema.keys() & {"properties", "required", "type"})
+
+
+def _number(schema: dict[str, Any], integer: bool) -> int | float:
+    lo, hi = schema.get("minimum"), schema.get("maximum")
+    ex_lo = schema.get("exclusiveMinimum")
+    value: float = 1 if integer else 1.5
+    if isinstance(lo, (int, float)):
+        value = lo
+    elif isinstance(ex_lo, (int, float)) and not isinstance(ex_lo, bool):
+        value = ex_lo + 1
+    if isinstance(hi, (int, float)) and value > hi:
+        value = hi
+    return int(value) if integer else float(value)
+
+
 def sample_from_schema(schema: Any, depth: int = 0, required_only: bool = False) -> Any:
-    """Build a small value that validates against a (reasonable) JSON Schema."""
-    if not isinstance(schema, dict) or depth > 6:
+    """Build a small value that validates against a (reasonable) JSON Schema.
+
+    Scalars are always produced; past MAX_SAMPLE_DEPTH objects keep only required
+    properties and arrays are left empty, so deep or recursive schemas stay small.
+    """
+    if not isinstance(schema, dict):
         return None
+    deep = depth >= MAX_SAMPLE_DEPTH
     if "const" in schema:
         return schema["const"]
-    if "default" in schema and schema["default"] is not None:
-        return schema["default"]
     if schema.get("enum"):
         return schema["enum"][0]
-    if "example" in schema:
-        return schema["example"]
+    for key in ("default", "example"):
+        if schema.get(key) is not None and _validates(schema[key], schema):
+            return schema[key]
     for key in ("oneOf", "anyOf"):
-        if schema.get(key):
-            return sample_from_schema(schema[key][0], depth + 1, required_only)
+        options = schema.get(key)
+        if options:
+            # Prefer a sample that satisfies the whole schema. For oneOf a full sample often
+            # matches several loose options; a required-only sample is more exclusive.
+            first = None
+            for option in options:
+                for minimal in (required_only, True):
+                    candidate = sample_from_schema(option, depth + 1, minimal)
+                    if first is None:
+                        first = candidate
+                    if _validates(candidate, schema):
+                        return candidate
+            return first
     if schema.get("allOf"):
+        constrained = [
+            p for p in schema["allOf"] if isinstance(p, dict) and CONSTRAINING & p.keys()
+        ]
+        if constrained and all(_object_like(p) for p in constrained):
+            # Sample the combined object, so `required` in one part sees the
+            # properties defined in another.
+            combined: dict[str, Any] = {"type": "object", "properties": {}, "required": []}
+            for p in constrained:
+                combined["properties"].update(p.get("properties") or {})
+                combined["required"] += p.get("required") or []
+            return sample_from_schema(combined, depth + 1, required_only)
+        parts = [sample_from_schema(p, depth + 1, required_only) for p in constrained]
+        dicts = [p for p in parts if isinstance(p, dict)]
+        if not dicts:
+            return parts[0] if parts else {}
         merged: dict[str, Any] = {}
-        for part in schema["allOf"]:
-            value = sample_from_schema(part, depth + 1, required_only)
-            if isinstance(value, dict):
-                merged.update(value)
+        for part in dicts:
+            merged.update(part)
         return merged
     t = schema.get("type")
     if isinstance(t, list):
+        if deep and "null" in t:
+            return None
         t = next((x for x in t if x != "null"), "null")
     if t is None:
         t = "object" if "properties" in schema else "string"
     if t == "object":
         props = schema.get("properties") or {}
         required = set(schema.get("required") or [])
-        return {
+        keep_all = not (required_only or deep)
+        value = {
             k: sample_from_schema(v, depth + 1, required_only)
             for k, v in props.items()
-            if not required_only or k in required
+            if keep_all or k in required
         }
+        # Specs sometimes require properties they never define.
+        for name in required - props.keys():
+            value[name] = "example"
+        extra = schema.get("additionalProperties")
+        if len(value) < int(schema.get("minProperties", 0) or 0) or (not value and extra):
+            extra_schema = extra if isinstance(extra, dict) else {"type": "string"}
+            value["key"] = sample_from_schema(extra_schema, depth + 1, required_only)
+        return value
     if t == "array":
+        min_items = int(schema.get("minItems", 0) or 0)
+        if deep and min_items == 0:
+            return []
         item = sample_from_schema(
             schema.get("items") or {"type": "string"}, depth + 1, required_only
         )
-        n = max(1, int(schema.get("minItems", 1)))
-        return [item] * n
-    if t == "integer":
-        lo = schema.get("minimum", 1)
-        return int(lo) if isinstance(lo, (int, float)) else 1
-    if t == "number":
-        lo = schema.get("minimum", 1.5)
-        return float(lo) if isinstance(lo, (int, float)) else 1.5
+        return [item] * max(1, min_items)
+    if t in ("integer", "number"):
+        return _number(schema, integer=t == "integer")
     if t == "boolean":
         return True
     if t == "null":
         return None
-    fmt = schema.get("format", "")
-    samples = {
-        "date-time": "2024-01-01T00:00:00Z",
-        "date": "2024-01-01",
-        "email": "user@example.com",
-        "uri": "https://example.com",
-        "url": "https://example.com",
-        "uuid": "00000000-0000-4000-8000-000000000000",
-    }
-    value = samples.get(fmt, "example")
+    text = STRING_SAMPLES.get(schema.get("format", ""), "example")
     min_len = int(schema.get("minLength", 0) or 0)
-    if len(value) < min_len:
-        value = value + "x" * (min_len - len(value))
-    return value
+    max_len = schema.get("maxLength")
+    if len(text) < min_len:
+        text = text + "x" * (min_len - len(text))
+    if isinstance(max_len, int) and len(text) > max_len:
+        text = text[:max_len]
+    return text
 
 
 def extract_items(data: Any) -> list[Any] | None:
@@ -247,7 +328,6 @@ class ApiRuntime:
 
         if self.mock:
             schema = op.get("response_schema") or {"type": "object"}
-            random.seed(name)
             return sample_from_schema(schema)
 
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:

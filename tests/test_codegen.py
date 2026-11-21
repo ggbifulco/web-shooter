@@ -132,3 +132,74 @@ def test_extract_items() -> None:
 
 def test_tools_json_is_plain_json(generated) -> None:
     json.loads(generated.config_path.read_text(encoding="utf-8"))
+
+
+def _deep(levels: int) -> dict:
+    schema: dict = {
+        "type": "object",
+        "required": ["a", "b"],
+        "properties": {"a": {"type": "string"}, "b": {"type": "integer"}},
+    }
+    for _ in range(levels):
+        schema = {"type": "object", "required": ["child"], "properties": {"child": schema}}
+    return schema
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        _deep(12),  # deep nesting must not produce None for non-nullable scalars
+        {"type": "object", "minProperties": 1},
+        {"type": "object", "additionalProperties": {"type": "integer"}},
+        {"allOf": [{"type": "string", "enum": ["personal", "business"]}]},
+        {
+            "oneOf": [
+                {"type": "object"},
+                {"type": "object", "required": ["x"], "properties": {"x": {"type": "string"}}},
+            ]
+        },
+        {"type": "string", "example": 123},  # wrong example is ignored
+        {"type": "integer", "maximum": 0},
+        {"type": "string", "maxLength": 3},
+    ],
+)
+def test_sample_from_schema_edge_cases(schema: dict) -> None:
+    jsonschema.validate(sample_from_schema(schema), schema)
+
+
+def test_swagger_file_type_becomes_binary_string() -> None:
+    from web_shooter.ingest.openapi import _clean_schema
+
+    assert _clean_schema({"type": "file"}) == {"type": "string", "format": "binary"}
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"allOf": [{"description": "only docs"}, {"properties": {"a": {"type": "string"}}}]},
+        {"type": "object", "required": ["items"], "properties": {"total": {"type": "integer"}}},
+        {
+            "oneOf": [
+                {"properties": {"a": {"type": "string"}}, "required": ["a"]},
+                {"properties": {"b": {"type": "string"}}, "required": ["b"]},
+            ]
+        },
+    ],
+)
+def test_sample_from_schema_messy_real_world_specs(schema: dict) -> None:
+    jsonschema.validate(sample_from_schema(schema), schema)
+
+
+def test_sample_allof_required_defined_in_other_part() -> None:
+    paging = {
+        "type": "object",
+        "required": ["items", "total"],
+        "properties": {"total": {"type": "integer"}},
+    }
+    items = {
+        "type": "object",
+        "properties": {"items": {"type": "array", "items": {"type": "string"}}},
+    }
+    schema = {"allOf": [paging, items]}
+    for depth in (0, 20):  # also when deep, where only required properties are kept
+        jsonschema.validate(sample_from_schema(schema, depth=depth), schema)
