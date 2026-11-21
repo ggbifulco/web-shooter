@@ -1,0 +1,11 @@
+$ web-shooter shoot https://petstore3.swagger.io/api/v3/openapi.json --install-claude project
+[1/5] ingest   https://petstore3.swagger.io/api/v3/openapi.json
+      19 endpoints, 16 tools, 3 skipped
+[2/5] polish   skipped
+[3/5] generate out\petstore-3-0-mcp
+[4/5] test     local sandbox, mock mode
+      38 passed, 0 failed, 0 inconclusive
+[5/5] repair   skipped (all tests pass)
+claude: registered with `claude mcp add` (project scope)
+
+petstore-3-0-mcp: ready -> out\petstore-3-0-mcp

@@ -1,0 +1,71 @@
+[project]
+name = "web-shooter"
+version = "0.1.0"
+description = "Point it at any API docs or OpenAPI spec and get a tested, working MCP server."
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Giuseppe Bifulco" }]
+requires-python = ">=3.11"
+keywords = ["mcp", "openapi", "llm", "codegen", "agents"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Software Development :: Code Generators",
+]
+dependencies = [
+    "anthropic>=0.75",
+    "beautifulsoup4>=4.12",
+    "httpx>=0.27",
+    "jinja2>=3.1",
+    "jsonschema>=4.22",
+    "markdownify>=0.13",
+    "mcp>=1.10",
+    "pydantic>=2.7",
+    "pyyaml>=6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ggbifulco/web-shooter"
+Issues = "https://github.com/ggbifulco/web-shooter/issues"
+
+[project.scripts]
+web-shooter = "web_shooter.cli:main"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.11",
+    "pytest>=8.3",
+    "ruff>=0.6",
+    "types-pyyaml>=6.0",
+    "types-jsonschema>=4.22",
+    "pillow>=10.4",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/web_shooter"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+warn_unused_ignores = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+files = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "docker: needs a running Docker daemon",
+    "network: needs internet access",
+]

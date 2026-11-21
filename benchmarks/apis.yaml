@@ -1,0 +1,24 @@
+# Public APIs used by benchmarks/run.py.
+# kind: spec  -> OpenAPI 3.x / Swagger 2.0 document (no LLM needed)
+# kind: docs  -> human-readable HTML docs only (needs an LLM key)
+apis:
+  - {name: Swagger Petstore v3, kind: spec, source: "https://petstore3.swagger.io/api/v3/openapi.json"}
+  - {name: Swagger Petstore v2, kind: spec, source: "https://petstore.swagger.io/v2/swagger.json"}
+  - {name: xkcd, kind: spec, source: "https://api.apis.guru/v2/specs/xkcd.com/1.0.0/openapi.json"}
+  - {name: APIs.guru, kind: spec, source: "https://api.apis.guru/v2/specs/apis.guru/2.2.0/openapi.json"}
+  - {name: NYT Top Stories, kind: spec, source: "https://api.apis.guru/v2/specs/nytimes.com/top_stories/2.0.0/openapi.json"}
+  - {name: Spotify, kind: spec, source: "https://api.apis.guru/v2/specs/spotify.com/1.0.0/openapi.json"}
+  - {name: NASA APOD, kind: spec, source: "https://api.apis.guru/v2/specs/nasa.gov/apod/1.0.0/openapi.json"}
+  - {name: httpbin, kind: spec, source: "https://api.apis.guru/v2/specs/httpbin.org/0.9.2/openapi.json"}
+  - {name: Listen Notes, kind: spec, source: "https://api.apis.guru/v2/specs/listennotes.com/2.0/openapi.json"}
+  - {name: Wikimedia, kind: spec, source: "https://api.apis.guru/v2/specs/wikimedia.org/1.0.0/swagger.json"}
+  - {name: Giphy, kind: spec, source: "https://api.apis.guru/v2/specs/giphy.com/1.0/openapi.json"}
+  - {name: ExchangeRate-API, kind: spec, source: "https://api.apis.guru/v2/specs/exchangerate-api.com/4/openapi.json"}
+  - {name: Lyft, kind: spec, source: "https://api.apis.guru/v2/specs/lyft.com/1.0.0/swagger.json"}
+  - {name: CircleCI, kind: spec, source: "https://api.apis.guru/v2/specs/circleci.com/v1/openapi.json"}
+  - {name: UK Vehicle Enquiry, kind: spec, source: "https://api.apis.guru/v2/specs/api.gov.uk/vehicle-enquiry/1.1.0/openapi.json"}
+  - {name: Gitea, kind: spec, source: "https://api.apis.guru/v2/specs/gitea.io/1.20.0+dev-93-g6886706f5/openapi.json"}
+  - {name: JSONPlaceholder, kind: docs, source: "https://jsonplaceholder.typicode.com/guide/"}
+  - {name: Dog CEO, kind: docs, source: "https://dog.ceo/dog-api/documentation/"}
+  - {name: Random User, kind: docs, source: "https://randomuser.me/documentation"}
+  - {name: Chuck Norris, kind: docs, source: "https://api.chucknorris.io/"}

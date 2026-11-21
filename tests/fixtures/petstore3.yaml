@@ -1,0 +1,118 @@
+openapi: 3.0.3
+info:
+  title: Petstore API
+  version: "1.0"
+  description: A small pet store used in web-shooter tests.
+servers:
+  - url: http://{host}/v1
+    variables:
+      host:
+        default: localhost:8765
+security:
+  - apiKey: []
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  parameters:
+    PetId:
+      name: petId
+      in: path
+      required: true
+      schema: { type: integer }
+  schemas:
+    NewPet:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        tag: { type: string, nullable: true }
+    Pet:
+      allOf:
+        - $ref: '#/components/schemas/NewPet'
+        - type: object
+          required: [id]
+          properties:
+            id: { type: integer }
+            owner: { $ref: '#/components/schemas/Owner' }
+    Owner:
+      type: object
+      properties:
+        name: { type: string }
+        pets:
+          type: array
+          items: { $ref: '#/components/schemas/Pet' }
+    PetList:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Pet' }
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      summary: List pets
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: tag
+          in: query
+          description: Filter by tag
+          schema: { type: string }
+      responses:
+        "200":
+          description: A page of pets
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PetList' }
+    post:
+      operationId: createPet
+      summary: Create a pet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewPet' }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Pet' }
+  /pets/{petId}:
+    parameters:
+      - $ref: '#/components/parameters/PetId'
+    get:
+      operationId: getPet
+      summary: Get a pet by id
+      responses:
+        "200":
+          description: The pet
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Pet' }
+        "404":
+          description: Not found
+    delete:
+      operationId: deletePet
+      summary: Delete a pet
+      responses:
+        "204":
+          description: Deleted
+  /health:
+    get:
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [ok] }

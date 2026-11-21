@@ -1,0 +1,28 @@
+{
+  "swagger": "2.0",
+  "info": {"title": "Notes API", "version": "2"},
+  "host": "notes.example.com",
+  "basePath": "/api",
+  "schemes": ["https"],
+  "securityDefinitions": {"token": {"type": "apiKey", "in": "query", "name": "token"}, "basic": {"type": "basic"}},
+  "security": [{"token": []}],
+  "definitions": {
+    "Note": {"type": "object", "required": ["text"], "properties": {"id": {"type": "integer"}, "text": {"type": "string"}}}
+  },
+  "paths": {
+    "/notes": {
+      "get": {"operationId": "listNotes", "parameters": [{"name": "offset", "in": "query", "type": "integer"}],
+              "responses": {"200": {"description": "ok", "schema": {"type": "array", "items": {"$ref": "#/definitions/Note"}}}}},
+      "post": {"operationId": "createNote", "parameters": [{"name": "note", "in": "body", "required": true, "schema": {"$ref": "#/definitions/Note"}}],
+               "responses": {"201": {"description": "created", "schema": {"$ref": "#/definitions/Note"}}}}
+    },
+    "/notes/{id}/attachments": {
+      "post": {"operationId": "uploadAttachment", "consumes": ["application/x-www-form-urlencoded"],
+               "security": [{"basic": []}],
+               "parameters": [{"name": "id", "in": "path", "required": true, "type": "integer"},
+                              {"name": "filename", "in": "formData", "type": "string", "required": true},
+                              {"name": "size", "in": "formData", "type": "integer"}],
+               "responses": {"200": {"description": "ok"}}}
+    }
+  }
+}
