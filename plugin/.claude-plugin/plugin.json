@@ -1,0 +1,13 @@
+{
+  "name": "web-shooter",
+  "version": "0.1.0",
+  "description": "Turn any API docs URL or OpenAPI spec into a tested MCP server and register it in Claude Code.",
+  "author": {
+    "name": "Giuseppe Bifulco",
+    "url": "https://github.com/ggbifulco"
+  },
+  "homepage": "https://github.com/ggbifulco/web-shooter",
+  "repository": "https://github.com/ggbifulco/web-shooter",
+  "license": "MIT",
+  "keywords": ["mcp", "openapi", "api", "codegen"]
+}

@@ -1,7 +1,12 @@
 import json
+import os
+import shutil
 from pathlib import Path
 
+import anyio
 import pytest
+from mcp import Client
+from mcp.client.stdio import StdioServerParameters
 
 from web_shooter import cli, install
 from web_shooter.codegen import generate
@@ -54,10 +59,29 @@ def test_install_writes_mcp_json_without_claude_cli(
     assert ".mcp.json" in msg
 
 
-def test_claude_add_command(petstore_path: str, tmp_path: Path) -> None:
+def test_claude_add_command(petstore_path: str, tmp_path: Path, monkeypatch) -> None:
     spec = ingest_openapi(petstore_path)
     server = generate(spec, design_tools(spec), tmp_path)
+    monkeypatch.setattr(install.shutil, "which", lambda name: None)
     cmd = install.claude_add_command(server, "user")
     assert cmd[:5] == ["claude", "mcp", "add", "--scope", "user"]
     assert cmd[cmd.index("--") - 1] == "petstore-mcp"
     assert cmd[-2:] == ["-m", "petstore_mcp"]
+
+
+@pytest.mark.skipif(shutil.which("uvx") is None, reason="uv not installed")
+def test_uvx_entry_launches_generated_server(petstore_path: str, tmp_path: Path) -> None:
+    """The command registered in Claude Code really starts a working MCP server."""
+    spec = ingest_openapi(petstore_path)
+    server = generate(spec, design_tools(spec), tmp_path)
+    entry = install.server_entry(server)
+    assert entry["command"] == "uvx"
+
+    async def list_tool_names() -> list[str]:
+        params = StdioServerParameters(
+            command=str(entry["command"]), args=list(entry["args"]), env={**os.environ}
+        )
+        async with Client(params, read_timeout_seconds=120) as client:
+            return [t.name for t in (await client.list_tools()).tools]
+
+    assert "get_pet" in anyio.run(list_tool_names)

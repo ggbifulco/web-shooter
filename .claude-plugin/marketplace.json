@@ -1,0 +1,23 @@
+{
+  "name": "web-shooter",
+  "description": "web-shooter: generate tested MCP servers from API docs and OpenAPI specs.",
+  "owner": {
+    "name": "Giuseppe Bifulco",
+    "url": "https://github.com/ggbifulco"
+  },
+  "plugins": [
+    {
+      "name": "web-shooter",
+      "source": "./plugin",
+      "description": "Turn any API docs URL or OpenAPI spec into a tested MCP server and register it in Claude Code.",
+      "version": "0.1.0",
+      "category": "development",
+      "keywords": [
+        "mcp",
+        "openapi",
+        "api",
+        "codegen"
+      ]
+    }
+  ]
+}

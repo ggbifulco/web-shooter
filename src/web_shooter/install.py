@@ -15,6 +15,18 @@ Scope = Literal["project", "user"]
 
 
 def server_entry(server: GeneratedServer) -> dict[str, object]:
+    """How Claude Code should launch the server.
+
+    With uv installed, `uvx --from <dir>` runs the generated package with its own
+    dependencies, independent of web-shooter's environment. Otherwise reuse the current
+    interpreter (which has mcp, httpx and jsonschema) with the package on PYTHONPATH.
+    """
+    if shutil.which("uvx"):
+        return {
+            "command": "uvx",
+            "args": ["--from", str(server.root.resolve()), server.dist_name],
+            "env": {},
+        }
     return {
         "command": sys.executable,
         "args": ["-m", server.package],
